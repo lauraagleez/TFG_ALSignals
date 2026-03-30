@@ -18,28 +18,28 @@ El dataset utilizado es **VOC-ALS**: 153 sujetos (102 ALS, 51 HC), con grabacion
 ```
 .
 ├── notebooks/
-│   ├── 01_dataset_validation.ipynb          # Validación del dataset y definición del split
-│   ├── 02_model_random_forest_v1.0.ipynb    # RF baseline — solo variables acústicas
-│   ├── 02_model_random_forest_v2.0.ipynb    # RF extendido — acústicas + demográficas
-│   ├── 03_data_preprocessing.ipynb          # Pipeline de audio → mel spectrograms
-│   ├── 04_model_deep_learning_v1.0.ipynb    # LSTM bidireccional sobre espectrogramas
-|   ├── 04_model_deep_learning_v2.0.ipynb    # LSTM bidireccional sobre espectrogramas + modelo pre-entrenado
-│   └── 05_model_comparison.ipynb            # Comparativa final RF vs DL
+│   ├── 01_dataset_validation.ipynb              # Validación del dataset y definición del split
+│   ├── 02_model_random_forest_v1.0.ipynb        # RF baseline — solo variables acústicas
+│   ├── 02_model_random_forest_v2.0.ipynb        # RF extendido — acústicas + demográficas
+│   ├── 03_data_preprocessing.ipynb              # Pipeline de audio → mel spectrograms
+│   ├── 04_model_deep_learning_v1.0.ipynb        # LSTM bidireccional sobre espectrogramas
+│   ├── 04_model_deep_learning_v2.0.ipynb        # Autoencoder → embedding → clasificación
+│   └── 05_model_comparison.ipynb                # Comparativa final RF vs DL
 │
 ├── artifacts/
 │   ├── metadata/
-│   │   └── VOC-ALS.xlsx                     # Metadata del dataset (no incluida en el repo)
+│   │   └── VOC-ALS.xlsx                         # Metadata del dataset (no incluida en el repo)
 │   ├── splits/
-│   │   └── subject_split.csv                # Partición reproducible por sujeto
-│   └── preprocessed/                        # Tensores .pt del dataset preprocesado
+│   │   └── subject_split.csv                    # Partición reproducible por sujeto
+│   └── preprocessed/                            # Tensores .pt del dataset preprocesado
 │       ├── train/
 │       ├── val/
 │       └── test/
 │
 ├── results/
-│   ├── figures/                             # Figuras exportadas (ROC, confusión, importancias)
-│   ├── metrics/                             # Tablas de métricas por modelo
-│   └── mlruns/                              # Experimentos MLflow
+│   ├── figures/                                 # Figuras exportadas (ROC, confusión, importancias)
+│   ├── metrics/                                 # Tablas de métricas por modelo
+│   └── mlruns/                                  # Experimentos MLflow
 │
 ├── requirements.txt
 └── README.md
@@ -55,12 +55,13 @@ Los notebooks están diseñados para ejecutarse en orden secuencial. Cada uno de
 
 | Notebook | Descripción | Estado | Artefactos generados |
 |----------|-------------|--------|----------------------|
-| `01_dataset_validation` | Validación estructural del dataset, análisis demográfico, análisis de features acústicas (distribuciones, outliers, correlación), separabilidad (PCA, t-SNE) y definición del split 70/15/15 por sujeto | ✅ Completo | `subject_split.csv`, figuras fig_01–fig_15 |
-| `02_model_rf_v1_0` | Random Forest baseline sobre las 50 variables acústicas. Nested CV (5×3), GridSearchCV, permutation importance, SHAP, calibración de probabilidades, tracking MLflow | ✅ Completo | métricas val/test, importancias, figuras ROC/confusión |
-| `02_model_rf_v2_0` | RF extendido con variables demográficas (edad, sexo). Comparativa directa con v1.0, análisis de sesgo por subgrupos, ranking AGE/SEX vs. features acústicas | ✅ Completo | métricas val/test extendido, tabla comparativa v1 vs v2 |
-| `03_data_preprocessing` | Pipeline de preprocesamiento de audio: resampling a 16 kHz, eliminación de silencios, normalización de loudness, generación de mel spectrograms (N_FFT=2048, HOP=512, N_MELS=128). Exportación de tensores `.pt` por split | 🔵 En curso | `preprocessed/train/`, `preprocessed/val/`, `preprocessed/test/`, `config.json` |
-| `04_model_deep_learning` | LSTM bidireccional (2 capas, hidden=256) sobre mel spectrograms. VariableLengthCollator con padding y máscaras, class weighting (ALS=2, HC=1), early stopping, 2 experimentos de arquitectura | 🟡 Pendiente | checkpoint LSTM, curvas de aprendizaje, métricas val |
-| `05_model_comparison` | Evaluación final en test de RF y LSTM. Tabla comparativa global, curvas ROC superpuestas, análisis de errores clínicamente relevantes, discusión de limitaciones | 🟡 Pendiente | tabla final, figura ROC comparativa |
+| `01_dataset_validation.ipynb` | Validación estructural del dataset, análisis demográfico, análisis de features acústicas (distribuciones, outliers, correlación), separabilidad (PCA, t-SNE) y definición del split 70/15/15 por sujeto | ✅ Completo | `subject_split.csv`, figuras fig_01–fig_15 |
+| `02_model_random_forest_v1.0.ipynb` | Random Forest baseline sobre las 50 variables acústicas. Nested CV (5×3), GridSearchCV, permutation importance, SHAP, calibración de probabilidades, tracking MLflow | ✅ Completo | métricas val/test, importancias, figuras ROC/confusión |
+| `02_model_random_forest_v2.0.ipynb` | RF extendido con variables demográficas (edad, sexo). Comparativa directa con v1.0, análisis de sesgo por subgrupos, ranking AGE/SEX vs. features acústicas | ✅ Completo | métricas val/test extendido, tabla comparativa v1 vs v2 |
+| `03_data_preprocessing.ipynb` | Pipeline de preprocesamiento de audio: resampling a 16 kHz, eliminación de silencios, normalización de loudness, generación de mel spectrograms (N_FFT=2048, HOP=512, N_MELS=128). Exportación de tensores `.pt` por split | 🔵 En curso | `preprocessed/train/`, `preprocessed/val/`, `preprocessed/test/`, `config.json` |
+| `04_model_deep_learning_v1.0.ipynb` | LSTM bidireccional (2 capas, hidden=256) sobre mel spectrograms. VariableLengthCollator con padding y máscaras, class weighting (ALS=2, HC=1), early stopping | 🟡 Pendiente | checkpoint LSTM v1.0, curvas de aprendizaje, métricas val/test |
+| `04_model_deep_learning_v2.0.ipynb` | Autoencoder convolucional entrenado sobre espectrogramas → extracción de embeddings del encoder → clasificador sobre el espacio latente. Comparativa con LSTM v1.0 | 🟡 Pendiente | checkpoint autoencoder, embeddings, métricas val/test, tabla comparativa DL v1 vs v2 |
+| `05_model_comparison.ipynb` | Evaluación final en test de todos los modelos. Tabla comparativa global RF v1/v2 vs DL v1/v2, curvas ROC superpuestas, análisis de errores clínicamente relevantes, selección del modelo definitivo | 🟡 Pendiente | tabla final, figura ROC comparativa, decisión modelo definitivo |
 
 ---
 
@@ -73,15 +74,15 @@ VOC-ALS.xlsx          audio/*.wav
  NB01: Validación    NB03: Preprocessing
   └─ subject_split.csv    └─ tensores .pt por split
            │                        │
-     ┌─────┴─────┐            ┌─────┘
-     ▼           ▼            ▼
-NB02 v1.0     NB02 v2.0    NB04: LSTM
-RF baseline   RF extendido  Deep Learning
-     │              │            │
-     └──────┬────────┘           │
-            ▼                    │
-       NB05: Comparativa ◄───────┘
-        RF vs DL (test set)
+     ┌─────┴─────┐         ┌────────┴────────┐
+     ▼           ▼         ▼                 ▼
+NB02 v1.0    NB02 v2.0  NB04 v1.0        NB04 v2.0
+RF baseline  RF extendido  LSTM bidir.   Autoencoder
+     │            │            │               │
+     └─────┬──────┘            └──────┬────────┘
+           ▼                          │
+     NB05: Comparativa ◄──────────────┘
+      todos los modelos (test set)
 ```
 
 ---
@@ -173,8 +174,10 @@ test_ids  = split_df[split_df["Split"] == "Test"]["ID"].values
 | RF v2.0 (acústicas + demográficas) | Nested CV | — | — | — |
 | RF v2.0 (acústicas + demográficas) | Validation | — | — | — |
 | RF v2.0 (acústicas + demográficas) | Test | — | — | — |
-| LSTM (mel spectrograms) | Validation | — | — | — |
-| LSTM (mel spectrograms) | Test | — | — | — |
+| DL v1.0 — LSTM bidireccional | Validation | — | — | — |
+| DL v1.0 — LSTM bidireccional | Test | — | — | — |
+| DL v2.0 — Autoencoder + clasificador | Validation | — | — | — |
+| DL v2.0 — Autoencoder + clasificador | Test | — | — | — |
 
 > La tabla se actualiza conforme se completan los notebooks.
 
@@ -197,4 +200,4 @@ test_ids  = split_df[split_df["Split"] == "Test"]["ID"].values
 
 ---
 
-*TFG — Ingeniería Biomédica · Universidad Laura González Romero · Curso 2025/2026*
+*TFG — Ingeniería Biomédica · Universidad Europea de Madrid · Curso 2025/2026*
