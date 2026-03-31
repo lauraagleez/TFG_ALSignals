@@ -168,12 +168,12 @@ test_ids  = split_df[split_df["Split"] == "Test"]["ID"].values
 
 | Modelo | Conjunto | Balanced Acc | Recall ALS | AUC |
 |--------|----------|:------------:|:----------:|:---:|
-| RF v1.0 (solo acústicas) | Nested CV | — | — | — |
-| RF v1.0 (solo acústicas) | Validation | — | — | — |
-| RF v1.0 (solo acústicas) | Test | — | — | — |
-| RF v2.0 (acústicas + demográficas) | Nested CV | — | — | — |
-| RF v2.0 (acústicas + demográficas) | Validation | — | — | — |
-| RF v2.0 (acústicas + demográficas) | Test | — | — | — |
+| RF v1.0 (solo acústicas) | Nested CV | 0.5452 | 0.4714 | 0.5684 |
+| RF v1.0 (solo acústicas) | Validation | 0.7417 | 0.7500 | 0.8250 |
+| RF v1.0 (solo acústicas) | Test | 0.6696 | 0.7143 | 0.5893 |
+| RF v2.0 (acústicas + demográficas) | Nested CV | 0.5381 | 0.4429 | 0.5572 |
+| RF v2.0 (acústicas + demográficas) | Validation | 0.7417 | 0.7500 | 0.8250 |
+| RF v2.0 (acústicas + demográficas) | Test | 0.6696 | 0.7143 | 0.5893 |
 | DL v1.0 — LSTM bidireccional | Validation | — | — | — |
 | DL v1.0 — LSTM bidireccional | Test | — | — | — |
 | DL v2.0 — Autoencoder + clasificador | Validation | — | — | — |
