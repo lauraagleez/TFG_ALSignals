@@ -174,8 +174,8 @@ test_ids  = split_df[split_df["Split"] == "Test"]["ID"].values
 | RF v2.0 (acústicas + demográficas) | Nested CV | 0.5381 | 0.4429 | 0.5572 |
 | RF v2.0 (acústicas + demográficas) | Validation | 0.7417 | 0.7500 | 0.8250 |
 | RF v2.0 (acústicas + demográficas) | Test | 0.6696 | 0.7143 | 0.5893 |
-| DL v1.0 — LSTM bidireccional | Validation | 0.5677 | 0.6667 | 0.5905 |
-| DL v1.0 — LSTM bidireccional | Test | 0.5497 | 0.6172 | 0.6274 |
+| DL v1.0 — LSTM bidireccional | Validation | 0.5870 | 0.6583 | 0.6331 |
+| DL v1.0 — LSTM bidireccional | Test | 0.6032 | 0.6172 | 0.7045 |
 | DL v2.0 — Autoencoder + clasificador | Validation | — | — | — |
 | DL v2.0 — Autoencoder + clasificador | Test | — | — | — |
 
