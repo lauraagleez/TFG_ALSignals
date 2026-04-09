@@ -1,4 +1,4 @@
-# Clasificación de ELA mediante análisis acústico del habla
+# Desarrollo de modelos de Machine Learning y Deep Learning basados en biomarcadores vocales para la clasificación binaria de ALS/HC
 ### Trabajo Fin de Grado — Ingeniería Biomédica · Curso 2025/2026
 
 Este repositorio contiene el código, notebooks y artefactos del TFG cuyo objetivo es clasificar pacientes con **Esclerosis Lateral Amiotrófica (ELA/ALS)** frente a controles sanos (HC) mediante el análisis acústico de señales de voz. El proyecto explota los biomarcadores vocales de la disartria —alteraciones en la articulación, el ritmo del habla y la estabilidad de la voz— como señal de clasificación.
