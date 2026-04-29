@@ -79,7 +79,7 @@ Los notebooks están diseñados para ejecutarse en orden secuencial. Cada uno de
 |----------|-------------|--------|----------------------|
 | `01_dataset_validation.ipynb` | Validación estructural del dataset, análisis demográfico, análisis de features acústicas (distribuciones, outliers, correlación), separabilidad (PCA, t-SNE) y definición del split **CV + Test** por sujeto: 15 % de hold-out estratificado para test y 85 % restante repartido en 5 folds mediante `StratifiedGroupKFold` | ✅ Completo (CV+Test) | `subject_split.csv` (cols: `ID`, `Category`, `Split` ∈ {CV, Test}, `Fold` ∈ {0..4, NaN}), figuras fig_01–fig_15 |
 | `02_model_random_forest_v1.0.ipynb` | Random Forest baseline restringido a las **50 variables acústicas** (sin demográficas ni clínicas). Nested CV (5×3 SGKF), GridSearchCV (288 combinaciones), permutation importance, MDI, calibración de probabilidades, tracking MLflow | ✅ Completo (CV+Test, acústicas only) | métricas CV/test (`cv_metrics.json`, `test_metrics.json`), `results_summary.csv`, importancias, figuras ROC/confusión |
-| `02_model_random_forest_v2.0.ipynb` | RF extendido con variables demográficas (`Age`, `Sex`). Comparativa directa con v1.0, análisis de sesgo por subgrupos, ranking AGE/SEX vs. features acústicas | 🟡 Pendiente de re-ejecutar bajo CV+Test | métricas CV/test extendido, tabla comparativa v1 vs v2 |
+| `02_model_random_forest_v2.0.ipynb` | RF extendido con variables demográficas (`Age`, `Sex`). Comparativa directa con v1.0, análisis de sesgo por subgrupos, ranking AGE/SEX vs. features acústicas, evaluación automática del veredicto sobre 7 criterios cuantitativos | ✅ Completo (CV+Test, acústicas + AGE + SEX) | métricas CV/test extendido (`cv_metrics.json`, `test_metrics.json`), `results_summary.csv`, comparativa baseline vs extendido (FP/FN, importancias), figuras ROC/confusión |
 | `03_data_preprocessing.ipynb` | Pipeline de preprocesamiento de audio: resampling a 8 kHz, eliminación de silencios, normalización de loudness, generación de mel spectrograms (`N_FFT=1024`, `HOP=256`, `N_MELS=64`). Exportación de tensores `.pt` por sujeto | 🔵 En curso (migración a config.yaml) | tensores `.pt`, `config.json` |
 | `04_model_deep_learning_v1.0.ipynb` | LSTM bidireccional sobre mel spectrograms. `VariableLengthCollator` con padding y máscaras, class weighting (ALS=2, HC=1), early stopping. Hiperparámetros desde `config.yaml`/`bilstm` | 🔵 En curso (migración a CV+Test) | checkpoint LSTM v1.0, curvas de aprendizaje, métricas CV/test |
 | `04_model_deep_learning_v2.0.ipynb` | Autoencoder convolucional entrenado sobre espectrogramas → extracción de embeddings del encoder → clasificador sobre el espacio latente. Comparativa con LSTM v1.0 | 🟡 Pendiente | checkpoint autoencoder, embeddings, métricas CV/test, tabla comparativa DL v1 vs v2 |
@@ -225,14 +225,14 @@ fold0_ids = cv_df.loc[cv_df["Fold"] == 0, "ID"].values   # ejemplo: fold 0
 |--------|----------|:------------:|:----------:|:---:|
 | **RF v1.0** (solo acústicas) | Nested CV (5×3 SGKF) | **0.5821 ± 0.0788** | **0.6392 ± 0.0457** | **0.6658 ± 0.0620** |
 | **RF v1.0** (solo acústicas) | Test (n = 23)        | **0.5982**          | **0.6250**          | **0.6071**          |
-| RF v2.0 (acústicas + demográficas) | Nested CV (5×3 SGKF) | — | — | — |
-| RF v2.0 (acústicas + demográficas) | Test (n = 23)        | — | — | — |
+| **RF v2.0** (acústicas + demográficas) | Nested CV (5×3 SGKF) | **0.5710 ± 0.0750** | **0.6392 ± 0.0457** | **0.6698 ± 0.0649** |
+| **RF v2.0** (acústicas + demográficas) | Test (n = 23)        | **0.5982**          | **0.6250**          | **0.6071**          |
 | DL v1.0 — LSTM bidireccional | Nested CV | — | — | — |
 | DL v1.0 — LSTM bidireccional | Test (n = 23) | — | — | — |
 | DL v2.0 — Autoencoder + clasificador | Nested CV | — | — | — |
 | DL v2.0 — Autoencoder + clasificador | Test (n = 23) | — | — | — |
 
-> Las celdas marcadas con "—" están pendientes de re-ejecución bajo el nuevo esquema **CV+Test**. Las cifras anteriores correspondían al split 70/15/15 y no son comparables con la métrica actual.
+> Las celdas DL marcadas con "—" están pendientes de re-ejecución bajo el nuevo esquema **CV+Test**. Las cifras anteriores correspondían al split 70/15/15 y no son comparables con la métrica actual.
 
 **Hallazgos del baseline RF v1.0:**
 
@@ -241,6 +241,15 @@ fold0_ids = cv_df.loc[cv_df["Fold"] == 0, "ID"].values   # ejemplo: fold 0
 - La concentración de relevancia en tareas de diadococinesia (PA, TA, KA) es coherente con la fisiopatología de la disartria en ELA.
 - La calibración de probabilidades (Platt, isotónica) no mejora la capacidad discriminativa con n=23 en test.
 - Gap entre nested CV y test pequeño (< 0.06 en balanced accuracy y AUC) → el modelo no sobre-ajusta de forma severa, dentro de las limitaciones del tamaño muestral.
+
+**Hallazgos del modelo extendido RF v2.0 (acústicas + AGE + SEX):**
+
+- El grid search converge a **idénticos hiperparámetros que v1.0** (`k=10`, `n_estimators=200`, `max_depth=5`, `min_samples_leaf=10`, `min_samples_split=10`, `class_weight='balanced'`) con el mismo best inner CV score de 0.622.
+- **AGE y SEX caen al fondo absoluto del ranking** de permutation importance (posiciones 51 y 52 de 52 features) con importancia exactamente 0.000. Ninguna de las dos supera el filtro de `SelectKBest`: en el estadístico F de ANOVA, `Sex_M` queda en rango 49/52 (F=0.122) y `Age` en 52/52 (F=0.012), por lo que **el modelo final no las usa** — las 10 features seleccionadas son todas acústicas.
+- **En test, el modelo extendido produce exactamente las mismas 23 predicciones que el baseline** (3 FP coincidentes: CT014, CT053, CT067; 6 FN coincidentes: PZ016, PZ058, PZ094, PZ098, PZ099, PZ105 — todos varones, edad media 57.5 años). Δ Bal.Acc Test = 0.000, Δ AUC Test = 0.000.
+- En nested CV, v2.0 obtiene Bal.Acc 0.571 ± 0.075 vs. 0.582 ± 0.079 del baseline (**Δ = −0.011**, dentro del margen de variabilidad inter-fold).
+- **Veredicto cuantitativo del notebook (4 SI / 3 NO sobre 7 criterios):** las variables demográficas no mejoran el modelo y añaden complejidad innecesaria. El baseline v1.0 es preferible por parsimonia.
+- **Coherencia con NB01:** las tres predicciones derivadas de la homogeneidad demográfica del Notebook 1 (importancia AGE baja, SEX no seleccionado, mejora marginal del extendido) quedan empíricamente confirmadas (3/3).
 
 ---
 
