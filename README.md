@@ -80,8 +80,8 @@ Los notebooks están diseñados para ejecutarse en orden secuencial. Cada uno de
 | `01_dataset_validation.ipynb` | Validación estructural del dataset, análisis demográfico, análisis de features acústicas (distribuciones, outliers, correlación), separabilidad (PCA, t-SNE) y definición del split **CV + Test** por sujeto: 15 % de hold-out estratificado para test y 85 % restante repartido en 5 folds mediante `StratifiedGroupKFold` | ✅ Completo (CV+Test) | `subject_split.csv` (cols: `ID`, `Category`, `Split` ∈ {CV, Test}, `Fold` ∈ {0..4, NaN}), figuras fig_01–fig_15 |
 | `02_model_random_forest_v1.0.ipynb` | Random Forest baseline restringido a las **50 variables acústicas** (sin demográficas ni clínicas). Nested CV (5×3 SGKF), GridSearchCV (288 combinaciones), permutation importance, MDI, calibración de probabilidades, tracking MLflow | ✅ Completo (CV+Test, acústicas only) | métricas CV/test (`cv_metrics.json`, `test_metrics.json`), `results_summary.csv`, importancias, figuras ROC/confusión |
 | `02_model_random_forest_v2.0.ipynb` | RF extendido con variables demográficas (`Age`, `Sex`). Comparativa directa con v1.0, análisis de sesgo por subgrupos, ranking AGE/SEX vs. features acústicas, evaluación automática del veredicto sobre 7 criterios cuantitativos | ✅ Completo (CV+Test, acústicas + AGE + SEX) | métricas CV/test extendido (`cv_metrics.json`, `test_metrics.json`), `results_summary.csv`, comparativa baseline vs extendido (FP/FN, importancias), figuras ROC/confusión |
-| `03_data_preprocessing.ipynb` | Pipeline de preprocesamiento de audio: resampling a 8 kHz, eliminación de silencios, normalización de loudness, generación de mel spectrograms (`N_FFT=1024`, `HOP=256`, `N_MELS=64`). Exportación de tensores `.pt` por sujeto | 🔵 En curso (migración a config.yaml) | tensores `.pt`, `config.json` |
-| `04_model_deep_learning_v1.0.ipynb` | LSTM bidireccional sobre mel spectrograms. `VariableLengthCollator` con padding y máscaras, class weighting (ALS=2, HC=1), early stopping. Hiperparámetros desde `config.yaml`/`bilstm` | 🔵 En curso (migración a CV+Test) | checkpoint LSTM v1.0, curvas de aprendizaje, métricas CV/test |
+| `03_data_preprocessing.ipynb` | Pipeline de preprocesamiento de audio: resampling a 8 kHz, eliminación de silencios, normalización de loudness, generación de mel spectrograms (`N_FFT=1024`, `HOP=256`, `N_MELS=64`). Estadísticos z-score calculados sobre CV (130 sujetos / 1.040 archivos / 461.538 frames). Exportación de tensores `.pt` a `preprocessed/cv/` y `preprocessed/test/` | ✅ Completo (CV+Test, parametrizado) | tensores `.pt` (1.040 CV + 184 Test), `config.json`, `preprocessing_log.csv` |
+| `04_model_deep_learning_v1.0.ipynb` | BiLSTM bidireccional con attention pooling sobre mel spectrograms. **CV de 5 folds (StratifiedGroupKFold) + ensemble** de los 5 modelos en Test. Diagnóstico de colapso a clase mayoritaria por época, early stopping sobre `val_balanced_accuracy`. Saliency maps y embeddings desde el modelo del fold 0 | ✅ Completo (CV 5-fold + ensemble, v1.2) | 5 checkpoints `bilstm_fold{0..4}.pt`, 5 figuras de diagnóstico, `cv_metrics.json`, `test_metrics.json`, predicciones OOF y de test |
 | `04_model_deep_learning_v2.0.ipynb` | Autoencoder convolucional entrenado sobre espectrogramas → extracción de embeddings del encoder → clasificador sobre el espacio latente. Comparativa con LSTM v1.0 | 🟡 Pendiente | checkpoint autoencoder, embeddings, métricas CV/test, tabla comparativa DL v1 vs v2 |
 | `05_model_comparison.ipynb` | Evaluación final en test de todos los modelos. Tabla comparativa global RF v1/v2 vs DL v1/v2, curvas ROC superpuestas, análisis de errores clínicamente relevantes, selección del modelo definitivo | 🟡 Pendiente | tabla final, figura ROC comparativa, decisión modelo definitivo |
 
@@ -227,12 +227,12 @@ fold0_ids = cv_df.loc[cv_df["Fold"] == 0, "ID"].values   # ejemplo: fold 0
 | **RF v1.0** (solo acústicas) | Test (n = 23)        | **0.5982**          | **0.6250**          | **0.6071**          |
 | **RF v2.0** (acústicas + demográficas) | Nested CV (5×3 SGKF) | **0.5710 ± 0.0750** | **0.6392 ± 0.0457** | **0.6698 ± 0.0649** |
 | **RF v2.0** (acústicas + demográficas) | Test (n = 23)        | **0.5982**          | **0.6250**          | **0.6071**          |
-| DL v1.0 — LSTM bidireccional | Nested CV | — | — | — |
-| DL v1.0 — LSTM bidireccional | Test (n = 23) | — | — | — |
-| DL v2.0 — Autoencoder + clasificador | Nested CV | — | — | — |
+| **DL v1.2** — BiLSTM (CV 5-fold + ensemble) | CV (5-fold SGKF, sujeto-level) | **0.6897 ± 0.0901** | **0.7400 ± 0.1076** | **0.6767 ± 0.1298** |
+| **DL v1.2** — BiLSTM (CV 5-fold + ensemble) | Test (n = 23, ensemble sujeto-level) | **0.7157** | **0.7647** | **0.8137** |
+| DL v2.0 — Autoencoder + clasificador | CV (5-fold SGKF) | — | — | — |
 | DL v2.0 — Autoencoder + clasificador | Test (n = 23) | — | — | — |
 
-> Las celdas DL marcadas con "—" están pendientes de re-ejecución bajo el nuevo esquema **CV+Test**. Las cifras anteriores correspondían al split 70/15/15 y no son comparables con la métrica actual.
+> Todas las métricas se reportan a **nivel de sujeto** para consistencia entre modelos: cada sujeto produce un único pronóstico por agregación (RF: 1 fila = 1 sujeto; BiLSTM: media de las 8 probabilidades de las 8 tareas vocales del sujeto). Para DL v1.2, la fila CV es la media ± desviación estándar de los 5 folds independientes a nivel de sujeto (26 sujetos por fold). Las celdas DL v2.0 quedan pendientes.
 
 **Hallazgos del baseline RF v1.0:**
 
@@ -250,6 +250,16 @@ fold0_ids = cv_df.loc[cv_df["Fold"] == 0, "ID"].values   # ejemplo: fold 0
 - En nested CV, v2.0 obtiene Bal.Acc 0.571 ± 0.075 vs. 0.582 ± 0.079 del baseline (**Δ = −0.011**, dentro del margen de variabilidad inter-fold).
 - **Veredicto cuantitativo del notebook (4 SI / 3 NO sobre 7 criterios):** las variables demográficas no mejoran el modelo y añaden complejidad innecesaria. El baseline v1.0 es preferible por parsimonia.
 - **Coherencia con NB01:** las tres predicciones derivadas de la homogeneidad demográfica del Notebook 1 (importancia AGE baja, SEX no seleccionado, mejora marginal del extendido) quedan empíricamente confirmadas (3/3).
+
+**Hallazgos del modelo profundo DL v1.2 (BiLSTM + CV 5-fold + ensemble):**
+
+- **Test ensemble a nivel de sujeto: BalAcc=0.7157, Recall ALS=0.7647, AUC=0.8137**, claramente por encima del baseline RF tanto en discriminación como en capacidad de ranking. El BiLSTM detecta correctamente 13 de 17 sujetos ALS (recall 0.76) y 4 de 6 sujetos HC (recall 0.67) en el conjunto de Test.
+- La migración de hold-out único a **CV 5-fold + ensemble** es la decisión metodológica con mayor impacto cuantitativo sobre el modelo profundo: aproximadamente +5 puntos de balanced accuracy y +12 puntos de AUC a nivel de sujeto en Test, sin cambiar la arquitectura. El ensemble actúa como regularizador implícito sobre un dataset pequeño.
+- Variabilidad entre los 5 folds (a nivel de sujeto, 26 sujetos por fold): balanced_accuracy oscila entre 0.575 (fold 1, peor) y 0.801 (fold 2, mejor); AUC entre 0.425 (fold 1) y 0.797 (fold 2). La media inter-fold (0.6897 ± 0.0901 BalAcc, 0.6767 ± 0.1298 AUC) es la estimación CV de referencia. Curiosamente, el fold 2 tiene la peor balanced_accuracy a nivel de muestra (0.573) pero la mejor a nivel de sujeto (0.801): los errores se distribuyen entre muchas tareas pero el promedio P(ALS) por sujeto sigue cayendo del lado correcto del umbral, lo que ilustra el valor de la agregación por sujeto en datasets con múltiples grabaciones por paciente.
+- **El detector de colapso a clase mayoritaria no se ha disparado en ningún fold ni época**: la fracción de predicciones ALS se ha mantenido entre 0.5 y 0.85, lejos de las zonas críticas (>0.95 o <0.05). El cambio de criterio de early stopping a `val_balanced_accuracy` (en lugar de `val_loss`) ha sido determinante para evitar checkpoints sesgados.
+- La agregación a nivel de sujeto (promedio de las 8 tareas vocales) mejora todas las métricas tanto en OOF como en Test: balanced accuracy +3-5 puntos, AUC +6-8 puntos, recall ALS +7-9 puntos. Este patrón consistente confirma el valor de reportar métricas a nivel de sujeto como métricas principales del modelo.
+- Análisis de saliency (modelo del fold 0): las bandas de baja frecuencia (subgraves <150 Hz, donde se sitúa F0) son las que presentan mayor activación diferencial en sujetos ALS, coherente con la fisiopatología de la disartria flácido-espástica. La banda >4 kHz tiene saliency exactamente cero, validando la decisión de fijar SR=8 kHz.
+- **Limitación residual:** el recall HC en Test (0.6667 a nivel de sujeto) sigue siendo inferior al recall ALS (0.7647), reflejo del desbalance 2:1 ALS:HC; el modelo conserva un sesgo residual hacia la clase mayoritaria, aunque mucho menos pronunciado que en versiones single-fold previas.
 
 ---
 
