@@ -1,0 +1,53 @@
+paths:
+  project_root:  .
+  dataset:       ./artifacts/metadata/VOC-ALS.xlsx
+  audio:         ./artifacts/raw
+  preprocessed:  ./artifacts/preprocessed
+  splits:        ./artifacts/splits
+  results:       ./results
+  models:        ./artifacts/models
+  mlruns:        ./mlruns
+
+dataset:
+  sheet_name: VOC-ALS_Data
+  target_col: Category
+  id_col: ID
+  age_col: "Age (years)"
+  sex_col: Sex
+  expected_tasks: ["A", "E", "I", "O", "U", "PA", "TA", "KA", "reading", "weekdays"]
+  acoustic_prefixes: ["meanF0Hz", "stdevF0Hz", "HNR", "localJitter", "localShimmer"]
+
+seed: 42
+
+split:
+  test_size: 0.15
+  n_cv_folds: 5
+
+audio:
+  sr: 8000
+  n_fft: 1024
+  hop_length: 256
+  n_mels: 64
+
+bilstm:
+  hidden_size: 32
+  num_layers: 1
+  dropout: 0.5
+  bidirectional: true
+  max_seq_len: 400
+  batch_size: 16
+  learning_rate: 5.0e-4
+  num_epochs: 80
+  patience: 15
+  weight_decay: 1.0e-2
+  label_smoothing: 0.1
+
+rf:
+  inner_cv_folds: 3
+  param_grid:
+    feature_selection__k: [10, 15, 20]
+    classifier__n_estimators: [50, 100, 200]
+    classifier__max_depth: [5, 10, 15, null]
+    classifier__min_samples_split: [10, 20]
+    classifier__min_samples_leaf: [5, 10]
+    classifier__class_weight: [null, "balanced"]
