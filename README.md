@@ -1,7 +1,7 @@
 # Desarrollo de modelos de Machine Learning y Deep Learning basados en biomarcadores vocales para la clasificación binaria de ALS/HC
 ### Trabajo Fin de Grado — Ingeniería Biomédica · Curso 2025/2026
 
-Este repositorio contiene el código, notebooks y artefactos del TFG cuyo objetivo es clasificar pacientes con **Esclerosis Lateral Amiotrófica (ELA/ALS)** frente a controles sanos (HC) mediante el análisis acústico de señales de voz. El proyecto explota los biomarcadores vocales de la disartria —alteraciones en la articulación, el ritmo del habla y la estabilidad de la voz— como señal de clasificación.
+Este repositorio contiene los códigos y notebooks del TFG cuyo objetivo es clasificar pacientes con **Esclerosis Lateral Amiotrófica (ELA/ALS)** frente a controles sanos (HC) mediante el análisis acústico de señales de voz. El proyecto hace uso de los biomarcadores vocales de la disartria (alteraciones en la articulación, el ritmo del habla y la estabilidad de la voz) como señal de clasificación.
 
 ---
 
@@ -17,15 +17,15 @@ El dataset utilizado es **VOC-ALS**: 153 sujetos (102 ALS, 51 HC), con grabacion
 
 ```
 .
-├── config.yaml                                   # Configuración centralizada (rutas, dataset, audio, hiperparámetros)
+├── config.yaml                                  # Configuración centralizada (rutas, dataset, audio, hiperparámetros)
 ├── notebooks/
 │   ├── 01_dataset_validation.ipynb              # Validación del dataset y definición del split CV+Test
 │   ├── 02_model_random_forest_v1.0.ipynb        # RF baseline — solo variables acústicas (50)
 │   ├── 02_model_random_forest_v2.0.ipynb        # RF extendido — acústicas + demográficas (edad, sexo)
 │   ├── 03_data_preprocessing.ipynb              # Pipeline de audio → mel spectrograms
-│   ├── 04_model_deep_learning_v1.0.ipynb        # LSTM bidireccional sobre espectrogramas
-│   ├── 04_model_deep_learning_v2.0.ipynb        # Autoencoder → embedding → clasificación
-│   └── 05_model_comparison.ipynb                # Comparativa final RF vs DL
+│   ├── 04_model_BiLSTM_v1.0.ipynb               # LSTM bidireccional sobre espectrogramas
+│   ├── 05_model_autoencoder_v2.0.ipynb          # Autoencoder → embedding → clasificación
+│   └── 06_model_comparison.ipynb                # Comparativa final RF vs DL
 │
 ├── artifacts/
 │   ├── metadata/
@@ -49,7 +49,7 @@ El dataset utilizado es **VOC-ALS**: 153 sujetos (102 ALS, 51 HC), con grabacion
 
 ## `config.yaml`: configuración centralizada
 
-Todas las rutas, parámetros del dataset, semilla, configuración del split, parámetros de audio y de los modelos están parametrizados en `config.yaml` en la raíz del repositorio. Cada notebook incluye una función `load_config()` que busca el archivo hacia arriba desde el CWD (o vía la variable de entorno `TFG_CONFIG`), resuelve las rutas relativas a la raíz y expone los valores como un diccionario `CONFIG`.
+Todas las rutas, parámetros del dataset, seed, configuración del split, parámetros de audio y de los modelos están parametrizados en `config.yaml` en la raíz del repositorio. Cada notebook incluye una función `load_config()` que busca el archivo hacia arriba desde el CWD (o vía la variable de entorno `TFG_CONFIG`), resuelve las rutas relativas a la raíz y expone los valores como un diccionario `CONFIG`.
 
 ```yaml
 paths:    { dataset, audio, preprocessed, splits, results, models, mlruns }
@@ -67,13 +67,13 @@ rf:       { inner_cv_folds, param_grid: { feature_selection__k,
             classifier__class_weight } }
 ```
 
-Cualquier cambio de ruta, semilla o hiperparámetro se realiza en este archivo y propaga automáticamente a todos los notebooks.
+Cualquier cambio de ruta, seed o hiperparámetro se realiza en este archivo y propaga automáticamente a todos los notebooks.
 
 ---
 
 ## Notebooks
 
-Los notebooks están diseñados para ejecutarse en orden secuencial. Cada uno depende de los artefactos generados por el anterior. El único archivo que conecta todos los notebooks es `artifacts/splits/subject_split.csv`, generado en NB01 y cargado directamente en todos los siguientes sin redefinirse.
+Los notebooks están diseñados para ejecutarse en orden secuencial. Cada uno depende de los artefactos generados por el anterior. El único archivo que conecta todos los notebooks es `artifacts/splits/subject_split.csv`, generado en 01_dataset_validation.ipynb y cargado directamente en todos los siguientes sin redefinirse.
 
 | Notebook | Descripción | Estado | Artefactos generados |
 |----------|-------------|--------|----------------------|
@@ -120,7 +120,7 @@ RF acústicas  RF + demo  LSTM bidir.   Autoencoder
 
 **Nested CV para estimación honesta del rendimiento.** El uso de `GridSearchCV` sin un loop externo de evaluación produce estimaciones optimistas del rendimiento porque los mismos datos se usan para optimizar hiperparámetros y para evaluar el modelo. El nested CV (5 folds externos × 3 folds internos) desacopla completamente ambos procesos: el outer loop opera sobre los folds del `subject_split.csv` y el inner loop construye un sub-`StratifiedGroupKFold` dentro de cada outer fold.
 
-**Test set abierto una sola vez.** El conjunto de test no interviene en ninguna decisión de modelado y se evalúa únicamente al final de cada pipeline, tras haber completado el análisis de CV. En NB05, cada modelo se evalúa en test una única vez para la comparativa final.
+**Test set abierto una sola vez.** El conjunto de test no interviene en ninguna decisión de modelado y se evalúa únicamente al final de cada pipeline, tras haber completado el análisis de CV. Cada modelo se evalúa en test una única vez para la comparativa final.
 
 **Espacio de features explícito en RF.**
 - **v1.0 (baseline):** sólo las 50 variables acústicas (5 prefijos × 10 tareas). Las demográficas y las clínicas ALS-only (`ALSFRS-R*`, `Revised_ElEscorial_Criteria`, `OnsetRegion`, `Therapy`, `FVC%`, `DiagnosticDelay`, `DiseaseDuration`) se excluyen del modelo.
