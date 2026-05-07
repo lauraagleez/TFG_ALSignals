@@ -1,7 +1,7 @@
 # Desarrollo de modelos de Machine Learning y Deep Learning basados en biomarcadores vocales para la clasificación binaria de ALS/HC
 ### Trabajo Fin de Grado — Ingeniería Biomédica · Curso 2025/2026
 
-Este repositorio contiene los códigos y notebooks del TFG cuyo objetivo es clasificar pacientes con **Esclerosis Lateral Amiotrófica (ELA/ALS)** frente a controles sanos (HC) mediante el análisis acústico de señales de voz. El proyecto hace uso de los biomarcadores vocales de la disartria (alteraciones en la articulación, el ritmo del habla y la estabilidad de la voz) como señal de clasificación.
+Este repositorio contiene el código, notebooks y artefactos del TFG cuyo objetivo es clasificar pacientes con **Esclerosis Lateral Amiotrófica (ELA/ALS)** frente a controles sanos (HC) mediante el análisis acústico de señales de voz. El proyecto explota los biomarcadores vocales de la disartria —alteraciones en la articulación, el ritmo del habla y la estabilidad de la voz— como señal de clasificación.
 
 ---
 
@@ -17,15 +17,15 @@ El dataset utilizado es **VOC-ALS**: 153 sujetos (102 ALS, 51 HC), con grabacion
 
 ```
 .
-├── config.yaml                                  # Configuración centralizada (rutas, dataset, audio, hiperparámetros)
+├── config.yaml                                   # Configuración centralizada (rutas, dataset, audio, hiperparámetros)
 ├── notebooks/
 │   ├── 01_dataset_validation.ipynb              # Validación del dataset y definición del split CV+Test
 │   ├── 02_model_random_forest_v1.0.ipynb        # RF baseline — solo variables acústicas (50)
 │   ├── 02_model_random_forest_v2.0.ipynb        # RF extendido — acústicas + demográficas (edad, sexo)
 │   ├── 03_data_preprocessing.ipynb              # Pipeline de audio → mel spectrograms
-│   ├── 04_model_BiLSTM_v1.0.ipynb               # LSTM bidireccional sobre espectrogramas
-│   ├── 05_model_autoencoder_v2.0.ipynb          # Autoencoder → embedding → clasificación
-│   └── 06_model_comparison.ipynb                # Comparativa final RF vs DL
+│   ├── 04_model_deep_learning_v1.0.ipynb        # LSTM bidireccional sobre espectrogramas
+│   ├── 04_model_deep_learning_v2.0.ipynb        # Autoencoder → embedding → clasificación
+│   └── 05_model_comparison.ipynb                # Comparativa final RF vs DL
 │
 ├── artifacts/
 │   ├── metadata/
@@ -49,7 +49,7 @@ El dataset utilizado es **VOC-ALS**: 153 sujetos (102 ALS, 51 HC), con grabacion
 
 ## `config.yaml`: configuración centralizada
 
-Todas las rutas, parámetros del dataset, seed, configuración del split, parámetros de audio y de los modelos están parametrizados en `config.yaml` en la raíz del repositorio. Cada notebook incluye una función `load_config()` que busca el archivo hacia arriba desde el CWD (o vía la variable de entorno `TFG_CONFIG`), resuelve las rutas relativas a la raíz y expone los valores como un diccionario `CONFIG`.
+Todas las rutas, parámetros del dataset, semilla, configuración del split, parámetros de audio y de los modelos están parametrizados en `config.yaml` en la raíz del repositorio. Cada notebook incluye una función `load_config()` que busca el archivo hacia arriba desde el CWD (o vía la variable de entorno `TFG_CONFIG`), resuelve las rutas relativas a la raíz y expone los valores como un diccionario `CONFIG`.
 
 ```yaml
 paths:    { dataset, audio, preprocessed, splits, results, models, mlruns }
@@ -67,13 +67,13 @@ rf:       { inner_cv_folds, param_grid: { feature_selection__k,
             classifier__class_weight } }
 ```
 
-Cualquier cambio de ruta, seed o hiperparámetro se realiza en este archivo y propaga automáticamente a todos los notebooks.
+Cualquier cambio de ruta, semilla o hiperparámetro se realiza en este archivo y propaga automáticamente a todos los notebooks.
 
 ---
 
 ## Notebooks
 
-Los notebooks están diseñados para ejecutarse en orden secuencial. Cada uno depende de los artefactos generados por el anterior. El único archivo que conecta todos los notebooks es `artifacts/splits/subject_split.csv`, generado en 01_dataset_validation.ipynb y cargado directamente en todos los siguientes sin redefinirse.
+Los notebooks están diseñados para ejecutarse en orden secuencial. Cada uno depende de los artefactos generados por el anterior. El único archivo que conecta todos los notebooks es `artifacts/splits/subject_split.csv`, generado en NB01 y cargado directamente en todos los siguientes sin redefinirse.
 
 | Notebook | Descripción | Estado | Artefactos generados |
 |----------|-------------|--------|----------------------|
@@ -120,7 +120,7 @@ RF acústicas  RF + demo  LSTM bidir.   Autoencoder
 
 **Nested CV para estimación honesta del rendimiento.** El uso de `GridSearchCV` sin un loop externo de evaluación produce estimaciones optimistas del rendimiento porque los mismos datos se usan para optimizar hiperparámetros y para evaluar el modelo. El nested CV (5 folds externos × 3 folds internos) desacopla completamente ambos procesos: el outer loop opera sobre los folds del `subject_split.csv` y el inner loop construye un sub-`StratifiedGroupKFold` dentro de cada outer fold.
 
-**Test set abierto una sola vez.** El conjunto de test no interviene en ninguna decisión de modelado y se evalúa únicamente al final de cada pipeline, tras haber completado el análisis de CV. Cada modelo se evalúa en test una única vez para la comparativa final.
+**Test set abierto una sola vez.** El conjunto de test no interviene en ninguna decisión de modelado y se evalúa únicamente al final de cada pipeline, tras haber completado el análisis de CV. En NB05, cada modelo se evalúa en test una única vez para la comparativa final.
 
 **Espacio de features explícito en RF.**
 - **v1.0 (baseline):** sólo las 50 variables acústicas (5 prefijos × 10 tareas). Las demográficas y las clínicas ALS-only (`ALSFRS-R*`, `Revised_ElEscorial_Criteria`, `OnsetRegion`, `Therapy`, `FVC%`, `DiagnosticDelay`, `DiseaseDuration`) se excluyen del modelo.
@@ -228,7 +228,7 @@ fold0_ids = cv_df.loc[cv_df["Fold"] == 0, "ID"].values   # ejemplo: fold 0
 | **RF v2.0** (acústicas + demográficas) | Nested CV (5×3 SGKF) | **0.5710 ± 0.0750** | **0.6392 ± 0.0457** | **0.6698 ± 0.0649** |
 | **RF v2.0** (acústicas + demográficas) | Test (n = 23)        | **0.5982**          | **0.6250**          | **0.6071**          |
 | **DL v1.2** — BiLSTM (CV 5-fold + ensemble) | CV (5-fold SGKF, sujeto-level) | **0.6514 ± 0.0876** | **0.7556 ± 0.1313** | **0.7034 ± 0.0743** |
-| **DL v1.2** — BiLSTM (CV 5-fold + ensemble) | Test (n = 23, ensemble sujeto-level) | **0.7157** | **0.7647** | **0.8137** |
+| **DL v1.2** — BiLSTM (CV 5-fold + ensemble) | Test (n = 23, ensemble sujeto-level) | **0.7634** | **0.8125** | **0.8571** |
 | **AE v1.0** — CNN2D Autoencoder + MLP (CV 5-fold + ensemble) | CV (5-fold SGKF, sample-level) | **0.6361 ± 0.0188** | **0.7097 ± 0.0281** | **0.6497 ± 0.0179** |
 | **AE v1.0** — CNN2D Autoencoder + MLP (CV 5-fold + ensemble) | Test (n = 23, ensemble sujeto-level) | **0.5491** | **0.8125** | **0.6071** |
 
@@ -253,13 +253,13 @@ fold0_ids = cv_df.loc[cv_df["Fold"] == 0, "ID"].values   # ejemplo: fold 0
 
 **Hallazgos del modelo profundo DL v1.2 (BiLSTM + CV 5-fold + ensemble):**
 
-- **Test ensemble a nivel de sujeto: BalAcc=0.7157, Recall ALS=0.7647, AUC=0.8137**, claramente por encima del baseline RF tanto en discriminación como en capacidad de ranking. El BiLSTM detecta correctamente 13 de 17 sujetos ALS (recall 0.76) y 4 de 6 sujetos HC (recall 0.67) en el conjunto de Test.
+- **Test ensemble a nivel de sujeto: BalAcc=0.7634, Recall ALS=0.8125, AUC=0.8571**, claramente por encima del baseline RF tanto en discriminación como en capacidad de ranking. El BiLSTM detecta correctamente 13 de 16 sujetos ALS (recall 0.81) y 5 de 7 sujetos HC (recall 0.71) en el conjunto de Test.
 - La migración de hold-out único a **CV 5-fold + ensemble** es la decisión metodológica con mayor impacto cuantitativo sobre el modelo profundo: aproximadamente +5 puntos de balanced accuracy y +12 puntos de AUC a nivel de sujeto en Test, sin cambiar la arquitectura. El ensemble actúa como regularizador implícito sobre un dataset pequeño.
-- Variabilidad entre los 5 folds (a nivel de sujeto, 26 sujetos por fold): balanced_accuracy mean = 0.6514 ± 0.0876, AUC mean = 0.7034 ± 0.0743. La desviación estándar inter-fold relativamente alta (~9 puntos en BalAcc, ~7 puntos en AUC) refleja la sensibilidad a qué subconjunto concreto de 26 sujetos toca como validación, esperable en datasets pequeños. La métrica del ensemble en Test (BalAcc 0.7157, AUC 0.8137) es más estable que cualquier fold individual: el promedio de probabilidades de los 5 modelos suaviza la varianza y produce predicciones más robustas.
+- Variabilidad entre los 5 folds (a nivel de sujeto, 26 sujetos por fold): balanced_accuracy mean = 0.6514 ± 0.0876, AUC mean = 0.7034 ± 0.0743. La desviación estándar inter-fold relativamente alta (~9 puntos en BalAcc, ~7 puntos en AUC) refleja la sensibilidad a qué subconjunto concreto de 26 sujetos toca como validación, esperable en datasets pequeños. La métrica del ensemble en Test (BalAcc 0.7634, AUC 0.8571) es más estable que cualquier fold individual: el promedio de probabilidades de los 5 modelos suaviza la varianza y produce predicciones más robustas.
 - **El detector de colapso a clase mayoritaria no se ha disparado en ningún fold ni época**: la fracción de predicciones ALS se ha mantenido entre 0.5 y 0.85, lejos de las zonas críticas (>0.95 o <0.05). El cambio de criterio de early stopping a `val_balanced_accuracy` (en lugar de `val_loss`) ha sido determinante para evitar checkpoints sesgados.
 - La agregación a nivel de sujeto (promedio de las 8 tareas vocales) mejora todas las métricas tanto en OOF como en Test: balanced accuracy +3-5 puntos, AUC +6-8 puntos, recall ALS +7-9 puntos. Este patrón consistente confirma el valor de reportar métricas a nivel de sujeto como métricas principales del modelo.
 - Análisis de saliency (modelo del fold 0): las bandas de baja frecuencia (subgraves <150 Hz, donde se sitúa F0) son las que presentan mayor activación diferencial en sujetos ALS, coherente con la fisiopatología de la disartria flácido-espástica. La banda >4 kHz tiene saliency exactamente cero, validando la decisión de fijar SR=8 kHz.
-- **Limitación residual:** el recall HC en Test (0.6667 a nivel de sujeto) sigue siendo inferior al recall ALS (0.7647), reflejo del desbalance 2:1 ALS:HC; el modelo conserva un sesgo residual hacia la clase mayoritaria, aunque mucho menos pronunciado que en versiones single-fold previas.
+- **Limitación residual:** el recall HC en Test (0.7143 a nivel de sujeto) sigue siendo inferior al recall ALS (0.8125), reflejo del desbalance ALS:HC en Test; el modelo conserva un sesgo residual hacia la clase mayoritaria, aunque mucho menos pronunciado que en versiones single-fold previas.
 
 **Hallazgos del Autoencoder CNN2D v1.0 (AE + MLP clasificador):**
 
